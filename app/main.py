@@ -6,6 +6,8 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from langfuse import get_client
+from langfuse.opentelemetry import LangfuseSpanProcessor
 from opentelemetry import metrics, trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
@@ -28,6 +30,7 @@ RESOURCE = Resource.create({
 endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-gateway.observability.svc.cluster.local:4317")
 trace_provider = TracerProvider(resource=RESOURCE)
 trace_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=endpoint.startswith("http://"))))
+trace_provider.add_span_processor(LangfuseSpanProcessor())
 trace.set_tracer_provider(trace_provider)
 metric_provider = MeterProvider(resource=RESOURCE, metric_readers=[
     PeriodicExportingMetricReader(
@@ -109,5 +112,13 @@ def ai_chat(prompt: str = "Explain OpenTelemetry"):
         ai_tokens.add(input_tokens, {"type": "input", "model": "mock-model"})
         ai_tokens.add(output_tokens, {"type": "output", "model": "mock-model"})
         ai_duration.record(time.monotonic() - start, {"model": "mock-model"})
+        # Do not export raw user prompts; this is a simulated, zero-cost model.
+        with get_client().start_as_current_observation(as_type="generation", name="mock-chat-completion", model="mock-model") as generation:
+            generation.update(
+                input={"prompt_length": len(prompt)},
+                output={"simulated": True, "answer": "OpenTelemetry is a vendor-neutral observability framework."},
+                usage_details={"input": input_tokens, "output": output_tokens},
+                metadata={"simulation": True, "provider": "demo"},
+            )
         logger.info("Simulated AI completion, input_tokens=%d output_tokens=%d", input_tokens, output_tokens)
         return {"model": "mock-model", "answer": "OpenTelemetry is a vendor-neutral observability framework.", "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens}, "simulated": True}

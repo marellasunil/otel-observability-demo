@@ -31,18 +31,32 @@ spec:
               value: http://otel-gateway.observability.svc.cluster.local:4317
             - name: DEPLOYMENT_ENVIRONMENT
               value: homelab
+            - name: OTEL_PYTHON_FASTAPI_EXCLUDED_URLS
+              value: health
+            - name: LANGFUSE_BASE_URL
+              value: https://cloud.langfuse.com
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: public-key
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: secret-key
           readinessProbe:
             httpGet:
               path: /health
               port: 8000
             initialDelaySeconds: 5
-            periodSeconds: 10
+            periodSeconds: 60
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
             initialDelaySeconds: 15
-            periodSeconds: 20
+            periodSeconds: 60
           resources:
             requests:
               cpu: 50m

@@ -1,0 +1,94 @@
+# Grafana Helm chart 14.4.0: preserves existing datasource UIDs and correlations.
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - access: proxy
+      editable: false
+      isDefault: true
+      name: Prometheus
+      type: prometheus
+      uid: prometheus
+      url: http://prometheus-stack-kube-prom-prometheus.observability.svc.cluster.local:9090
+    - access: proxy
+      editable: false
+      isDefault: false
+      name: Mimir
+      type: prometheus
+      uid: mimir
+      url: http://mimir.observability.svc.cluster.local:9009/prometheus
+    - name: loki
+      uid: eg3ihvyg6k5q8e
+      type: loki
+      access: proxy
+      url: http://loki.observability.svc.cluster.local:3100
+      isDefault: false
+      editable: null
+      jsonData:
+        derivedFields:
+        - datasourceUid: fg3ir1gbl59fkd
+          matcherRegex: '"trace_id"\s*:\s*"([a-fA-F0-9]{32})"'
+          matcherType: regex
+          name: TraceID
+          url: $${__value.raw}
+          urlDisplayLabel: View trace
+        pdcInjected: false
+    - name: tempo
+      uid: fg3ir1gbl59fkd
+      type: tempo
+      access: proxy
+      url: http://tempo.observability.svc.cluster.local:3200
+      isDefault: false
+      editable: null
+      jsonData:
+        pdcInjected: false
+        tracesToLogsV2:
+          customQuery: true
+          datasourceUid: eg3ihvyg6k5q8e
+          filterBySpanID: false
+          filterByTraceID: true
+          query: '{k8s_namespace_name="demo-apps"} | json | trace_id = "$${__trace.traceId}"'
+          spanEndTimeShift: 5m
+          spanStartTimeShift: -5m
+        tracesToProfiles:
+          datasourceUid: dg3inazv82cjkf
+          profileTypeId: process_cpu:cpu:nanoseconds:cpu:nanoseconds
+          tags:
+          - key: Trace tag
+            value: service.name
+          - key: Profile label
+            value: service
+grafana.ini:
+  analytics:
+    check_for_updates: false
+    reporting_enabled: false
+  server:
+    root_url: http://fedora-worker:30080/
+  users:
+    allow_sign_up: false
+persistence:
+  accessModes:
+  - ReadWriteOnce
+  enabled: true
+  size: 5Gi
+  storageClassName: local-path
+  type: pvc
+replicas: 1
+resources:
+  limits:
+    cpu: 500m
+    memory: 768Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+service:
+  port: 80
+  type: ClusterIP
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: '1'
+    provider:
+      allowUiUpdates: false
+    searchNamespace: observability

@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from langfuse import get_client
-from langfuse.opentelemetry import LangfuseSpanProcessor
 from opentelemetry import metrics, trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
@@ -30,7 +29,6 @@ RESOURCE = Resource.create({
 endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-gateway.observability.svc.cluster.local:4317")
 trace_provider = TracerProvider(resource=RESOURCE)
 trace_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=endpoint.startswith("http://"))))
-trace_provider.add_span_processor(LangfuseSpanProcessor())
 trace.set_tracer_provider(trace_provider)
 metric_provider = MeterProvider(resource=RESOURCE, metric_readers=[
     PeriodicExportingMetricReader(

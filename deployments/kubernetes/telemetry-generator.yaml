@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: otel-demo-traffic
+  namespace: demo-apps
+  labels:
+    app.kubernetes.io/part-of: otel-observability-demo
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 3600
+      backoffLimit: 1
+      activeDeadlineSeconds: 90
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: generator
+              image: localhost/otel-observability-demo:v0.2.0-langfuse
+              imagePullPolicy: IfNotPresent
+              command: ["python", "-c"]
+              args:
+                - |
+                  import datetime
+                  import urllib.request
+                  base = "http://otel-observability-demo.demo-apps.svc.cluster.local:8000"
+                  paths = ["/checkout", "/checkout"]
+                  # Keep Langfuse free-tier volume low: one mock AI call every 30 minutes.
+                  if datetime.datetime.now(datetime.timezone.utc).minute % 30 == 0:
+                      paths.append("/ai/chat?prompt=scheduled-demo")
+                  for path in paths:
+                      with urllib.request.urlopen(base + path, timeout=10) as response:
+                          print(f"{path}: HTTP {response.status}", flush=True)
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]

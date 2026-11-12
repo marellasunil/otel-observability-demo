@@ -45,6 +45,18 @@ exporters:
     auth:
       authenticator: basicauth/grafana_cloud
     timeout: 10s
+  otlphttp/splunk_o11y:
+    metrics_endpoint: https://ingest.eu0.observability.splunkcloud.com/v2/datapoint/otlp
+    traces_endpoint: https://ingest.eu0.observability.splunkcloud.com/v2/trace/otlp
+    headers:
+      X-SF-Token: ${env:SPLUNK_ACCESS_TOKEN}
+    timeout: 30s
+    sending_queue:
+      enabled: true
+      queue_size: 1000
+    retry_on_failure:
+      enabled: true
+
 service:
   telemetry:
     metrics:
@@ -67,6 +79,7 @@ service:
       - prometheus
       - prometheusremotewrite/mimir
       - otlphttp/grafana_cloud
+      - otlphttp/splunk_o11y
     logs:
       receivers:
       - otlp
@@ -85,6 +98,7 @@ service:
       exporters:
       - otlp_grpc/tempo
       - otlphttp/grafana_cloud
+      - otlphttp/splunk_o11y
   extensions:
   - basicauth/grafana_cloud
 extensions:
